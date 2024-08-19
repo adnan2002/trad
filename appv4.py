@@ -371,7 +371,7 @@ def main_trading_loop(cryptocurrencies):
                         sentiment_score = (types_sentiment['reddit-post'] + types_sentiment['tweet']) / 2
                         print(f"[{get_kuwait_time()}] Crypto: {crypto_symbol}, Sentiment Score: {sentiment_score}")
 
-                        if sentiment_score >= 85:
+                        if sentiment_score >= 86:
                             buy_signals.append((crypto_symbol, sentiment_score))
                         elif sentiment_score < 55:
                             sell_signals.append((crypto_symbol, sentiment_score))
@@ -392,17 +392,19 @@ def main_trading_loop(cryptocurrencies):
                         print(f"[{get_kuwait_time()}] Trade cooldown period not met for {symbol}.")
                         continue
 
-                    if symbol in placed_orders:
-                        print(f"[{get_kuwait_time()}] Order already placed for {symbol}, skipping.")
-                        continue
-
+                    # Try fetching data for each selected cryptocurrency
                     atr = calculate_atr(symbol)
+                    if atr is None:
+                        print(f"[{get_kuwait_time()}] Skipping {crypto_symbol} due to missing ATR data.")
+                        continue  # Skip to the next cryptocurrency
+
                     current_price = get_current_price(symbol)
                     if current_price is None:
-                        continue
+                        print(f"[{get_kuwait_time()}] Skipping {crypto_symbol} due to missing current price.")
+                        continue  # Skip to the next cryptocurrency
 
                     entry_price = current_price
-                    side = determine_trade_side(sentiment_score, crypto_symbol)
+                    side = determine_trade_side(sentiment_score)
                     print(f"[{get_kuwait_time()}] Determined trade side for {crypto_symbol}: {side}")
 
                     if side:
@@ -427,6 +429,7 @@ def main_trading_loop(cryptocurrencies):
 
                                 # Start a new thread for managing the placed orders
                                 threading.Thread(target=manage_placed_orders, args=(symbol, side, entry_price, atr, qty)).start()
+                                break  # Exit the loop after placing an order successfully
                             except Exception as e:
                                 logging.error(f"Error during trade execution for {crypto_symbol}: {e}")
                         else:
