@@ -442,7 +442,7 @@ def main_trading_loop(cryptocurrencies):
 
 if __name__ == "__main__":
     cryptocurrencies = [
-        "BTC", "ETH", "BNB", "ADA", "SOL", "XRP", "DOT", 
+         "BNB", "ADA", "SOL", "XRP", "DOT", 
         "DOGE", "AVAX", "SHIB", "MATIC", "LTC", "UNI", 
         "BCH", "LINK", "USDC", "TON", "TRX", "LEO", "DAI", "NEAR"
     ]
