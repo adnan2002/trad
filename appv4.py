@@ -1,3 +1,4 @@
+import threading
 import logging
 import requests
 import numpy as np
@@ -7,21 +8,21 @@ from datetime import datetime, timedelta
 import time
 import pytz
 
-
 # Configuration - Insert your API keys here
 ALPACA_API_KEY = 'AKYI9P9DGWN060ID3S8S'
 ALPACA_API_SECRET = 'Nj9YhfyfGUN0SNE0zxEggeCxZadY6RFU5Nf1rH6s'
 ALPACA_BASE_URL = "https://api.alpaca.markets"
 LUNARCRUSH_API_KEY = '40a5jeizbairls0kvqfbzvsoddlzmpqu0m3hjuema'
-MAX_API_CALLS = 1782  # 99% of the 1800 calls per day limit
+MAX_API_CALLS = 9999999999999999  # 99% of the 1800 calls per day limit
 TRADE_COOLDOWN_DAYS = 5
 api_calls = 0
 
 # Initialize Alpaca API
 alpaca = REST(ALPACA_API_KEY, ALPACA_API_SECRET, ALPACA_BASE_URL, api_version='v2')
 
-# Track last trade dates for each symbol
+# Track last trade dates and placed orders
 last_trade_dates = {}
+placed_orders = {}  # Store orders with timestamps and order details
 
 def get_kuwait_time():
     kuwait_tz = pytz.timezone('Asia/Kuwait')
@@ -30,22 +31,27 @@ def get_kuwait_time():
 # Function to map various symbol aliases to the standard format
 def standardize_symbol(raw_symbol):
     symbol_aliases = {
-            "BTC": ["BTC", "BTCUSD", "Bitcoin"],
-            "ETH": ["ETH", "ETHUSD", "Ethereum"],
-            "BNB": ["BNB", "BNBUSDT", "Binance Coin"],
-            "ADA": ["ADA", "ADAUSDT", "Cardano"],
-            "SOL": ["SOL", "SOLUSDT", "Solana"],
-            "XRP": ["XRP", "XRPUSDT", "Ripple"],
-            "DOT": ["DOT", "DOTUSDT", "Polkadot"],
-            "DOGE": ["DOGE", "DOGEUSDT", "Dogecoin"],
-            "AVAX": ["AVAX", "AVAXUSDT", "Avalanche"],
-            "SHIB": ["SHIB", "SHIBUSDT", "Shiba Inu"],
-            "MATIC": ["MATIC", "MATICUSDT", "Polygon"],
-            "LTC": ["LTC", "LTCUSDT", "Litecoin"],
-            "UNI": ["UNI", "UNIUSDT", "Uniswap"],
-            "BCH": ["BCH", "BCHUSDT", "Bitcoin Cash"],
-            "LINK": ["LINK", "LINKUSDT", "Chainlink"],
-        }
+    "BNB": ["BNB", "BNBUSDT", "Binance Coin"],
+    "ADA": ["ADA", "ADAUSDT", "Cardano"],
+    "SOL": ["SOL", "SOLUSDT", "Solana"],
+    "XRP": ["XRP", "XRPUSDT", "Ripple"],
+    "DOT": ["DOT", "DOTUSDT", "Polkadot"],
+    "DOGE": ["DOGE", "DOGEUSDT", "Dogecoin"],
+    "AVAX": ["AVAX", "AVAXUSDT", "Avalanche"],
+    "SHIB": ["SHIB", "SHIBUSDT", "Shiba Inu"],
+    "MATIC": ["MATIC", "MATICUSDT", "Polygon"],
+    "LTC": ["LTC", "LTCUSDT", "Litecoin"],
+    "UNI": ["UNI", "UNIUSDT", "Uniswap"],
+    "BCH": ["BCH", "BCHUSDT", "Bitcoin Cash"],
+    "LINK": ["LINK", "LINKUSDT", "Chainlink"],
+    "USDC": ["USDC", "USDCUSDT", "USD Coin"],
+    "TON": ["TON", "TONUSDT", "Toncoin"],
+    "TRX": ["TRX", "TRXUSDT", "TRON"],
+    "LEO": ["LEO", "LEOUSDT", "UNUS SED LEO"],
+    "DAI": ["DAI", "DAIUSDT", "Dai"],
+    "NEAR": ["NEAR", "NEARUSDT", "NEAR Protocol"],
+}
+
     for key, aliases in symbol_aliases.items():
         if raw_symbol.upper() in [alias.upper() for alias in aliases]:
             return f"{key}/USDT"
@@ -143,28 +149,46 @@ def get_current_price(symbol):
         return None
     
 
-# Determine trade side based on sentiment
-def determine_trade_side(sentiment_score, topic):
-    side = None
-    sentiment_score_before = get_sentiment_change(topic)
+# # Determine trade side based on sentiment
+# def determine_trade_side(sentiment_score, topic):
+#     side = None
+#     sentiment_score_before = get_sentiment_change(topic)
 
-    if sentiment_score_before is not None and abs(sentiment_score - sentiment_score_before) >= 10:
-        if sentiment_score > sentiment_score_before:
-            side = "buy"
-            print(f"[{get_kuwait_time()}] Trade side determined: buy due to positive sentiment change")
-        else:
-            side = "sell"
-            print(f"[{get_kuwait_time()}] Trade side determined: sell due to negative sentiment change")
-    elif sentiment_score >= 90:
+#     if sentiment_score_before is not None and abs(sentiment_score - sentiment_score_before) >= 10:
+#         if sentiment_score > sentiment_score_before:
+#             side = "buy"
+#             print(f"[{get_kuwait_time()}] Trade side determined: buy due to positive sentiment change")
+#         else:
+#             side = "sell"
+#             print(f"[{get_kuwait_time()}] Trade side determined: sell due to negative sentiment change")
+#     elif sentiment_score >= 90:
+#         side = "buy"
+#         print(f"[{get_kuwait_time()}] Trade side determined: buy")
+#     elif sentiment_score < 7:
+#         side = "sell"
+#         print(f"[{get_kuwait_time()}] Trade side determined: sell")
+
+#     if side is None:
+#         print(f"[{get_kuwait_time()}] No trade side determined")
+#     return side
+
+# Determine trade side based on sentiment
+def determine_trade_side(sentiment_score):
+    side = None
+
+    if sentiment_score >= 86:
         side = "buy"
-        print(f"[{get_kuwait_time()}] Trade side determined: buy")
-    elif sentiment_score < 7:
+        print(f"[{get_kuwait_time()}] Trade side determined: buy (sentiment score >= 86)")
+    elif sentiment_score < 55:
         side = "sell"
-        print(f"[{get_kuwait_time()}] Trade side determined: sell")
+        print(f"[{get_kuwait_time()}] Trade side determined: sell (sentiment score < 55)")
 
     if side is None:
-        print(f"[{get_kuwait_time()}] No trade side determined")
+        print(f"[{get_kuwait_time()}] No trade side determined based on sentiment score.")
+        
     return side
+
+
 # Get overall sentiment
 def get_overall_sentiment(topic):
     global api_calls  # Declare that you want to use the global api_calls variable
@@ -287,36 +311,66 @@ def place_take_profit_orders(symbol, qty, side, entry_price):
     except Exception as e:
         logging.error(f"Error placing take profit orders: {e}")
 
+# Function to manage placed orders and execute post-order functions
+def manage_placed_orders(symbol, side, entry_price, atr, qty):
+    try:
+        while symbol in placed_orders:
+            adjust_stop_loss(symbol, side, entry_price, atr, qty)
+            time.sleep(10)
+            place_trailing_stop(symbol, qty, side)
+            time.sleep(10)
+            place_take_profit_orders(symbol, qty, side, entry_price)
+            time.sleep(60)
 
-if __name__ == "__main__":
-    while True:  # Infinite loop for continuous execution
+            # Once a post-order function successfully executes, remove the symbol from placed orders
+            if symbol in placed_orders:
+                del placed_orders[symbol]
+                print(f"[{get_kuwait_time()}] {symbol} removed from placed orders after successful execution.")
+                break
+
+    except Exception as e:
+        logging.error(f"Error managing placed orders for {symbol}: {e}")
+
+# Function to handle 5-day cooldown and automatic sell after 5 days
+def handle_cooldown_and_sell(cryptocurrencies):
+    while True:
+        current_time = datetime.now()
+        for symbol in list(placed_orders.keys()):
+            order_time = placed_orders[symbol]['time']
+            side = placed_orders[symbol]['side']
+            qty = placed_orders[symbol]['qty']
+
+            if (current_time - order_time).days >= TRADE_COOLDOWN_DAYS:
+                # If 5 days have passed, place a sell order
+                if side == 'buy':
+                    try:
+                        place_order(symbol, qty, 'sell')
+                        print(f"[{get_kuwait_time()}] Sell order placed for {symbol} after 5 days.")
+                    except Exception as e:
+                        logging.error(f"Error placing sell order for {symbol} after 5 days: {e}")
+
+                # Re-add the symbol to the cryptocurrencies list
+                cryptocurrencies.append(symbol)
+                del placed_orders[symbol]
+
+        time.sleep(60)  # Check every minute
+
+# Main trading loop
+def main_trading_loop(cryptocurrencies):
+    while True:
         try:
-            # List of cryptocurrencies to evaluate
-            cryptocurrencies = ["BTC", "ETH", "BNB", "ADA", "SOL", "XRP", "DOT", "DOGE", "AVAX", "SHIB", "MATIC", "LTC", "UNI", "BCH", "LINK"]
-
-            # Arrays to store selected cryptocurrencies based on sentiment criteria
             buy_signals = []
             sell_signals = []
 
             for crypto_symbol in cryptocurrencies:
-                # Fetch LunarCrush data for each cryptocurrency
                 lunarcrush_data = fetch_lunarcrush_data(crypto_symbol)
-
                 if lunarcrush_data:
-                    # Access the correct data structure
                     data = lunarcrush_data['summary']['data']
-
-                    # Extract sentiment data for different types
                     types_sentiment = data.get('types_sentiment', {})
-
-                    # Check if types_sentiment is available
                     if types_sentiment:
-                        # Calculate the average sentiment score across different types
                         sentiment_score = (types_sentiment['reddit-post'] + types_sentiment['tweet']) / 2
-
                         print(f"[{get_kuwait_time()}] Crypto: {crypto_symbol}, Sentiment Score: {sentiment_score}")
 
-                        # Store in appropriate array based on sentiment score
                         if sentiment_score >= 90:
                             buy_signals.append((crypto_symbol, sentiment_score))
                         elif sentiment_score < 7:
@@ -329,76 +383,72 @@ if __name__ == "__main__":
                 print(f"[{get_kuwait_time()}] Selected Cryptocurrencies: {selected_cryptos}")
 
                 for crypto_symbol, sentiment_score in selected_cryptos:
-                    # Continue with the trading logic for the selected cryptocurrency
                     symbol = standardize_symbol(crypto_symbol)
                     if not symbol:
                         print(f"[{get_kuwait_time()}] Symbol not recognized.")
-                        continue  # Skip to the next cryptocurrency
+                        continue
 
-                    # Check trade cooldown
                     if symbol in last_trade_dates and (datetime.now() - last_trade_dates[symbol]).days < TRADE_COOLDOWN_DAYS:
                         print(f"[{get_kuwait_time()}] Trade cooldown period not met for {symbol}.")
-                        continue  # Skip to the next cryptocurrency
+                        continue
+
+                    if symbol in placed_orders:
+                        print(f"[{get_kuwait_time()}] Order already placed for {symbol}, skipping.")
+                        continue
 
                     atr = calculate_atr(symbol)
                     current_price = get_current_price(symbol)
-
-                    # Skip if no quotes were found
                     if current_price is None:
                         continue
 
                     entry_price = current_price
                     side = determine_trade_side(sentiment_score, crypto_symbol)
-
                     print(f"[{get_kuwait_time()}] Determined trade side for {crypto_symbol}: {side}")
 
                     if side:
-                        # Fetch the account's USDTUSD balance
-                        positions = alpaca.list_positions()  # Fetch positions
-
+                        positions = alpaca.list_positions()
                         usdtusd_position = next((pos for pos in positions if pos.symbol == 'USDTUSD'), None)
-
-                        if usdtusd_position:
-                            usdt_balance = float(usdtusd_position.market_value)
-                        else:
-                            usdt_balance = 0.0
+                        usdt_balance = float(usdtusd_position.market_value) if usdtusd_position else 0.0
 
                         min_qty = 0.001  # Example minimum quantity, adjust as needed
-
-                        print(f"[{get_kuwait_time()}] USDT Balance: {usdt_balance}")
-                        print(f"[{get_kuwait_time()}] Entry Price for {crypto_symbol}: {entry_price}")
-                        print(f"[{get_kuwait_time()}] Side for {crypto_symbol}: {side}")
-
-                        if entry_price > 0 and usdt_balance > 0:
-                            qty = max(usdt_balance * 0.1 / entry_price, min_qty)
-                            print(f"[{get_kuwait_time()}] Calculated Quantity for {crypto_symbol}: {qty}")
-                        else:
-                            logging.error(f"Invalid entry price or insufficient USDT balance for {crypto_symbol}.")
-                            qty = 0  # Setting qty to zero to prevent any trade if invalid
+                        qty = max(usdt_balance * 0.1 / entry_price, min_qty) if entry_price > 0 and usdt_balance > 0 else 0
 
                         if qty > min_qty:
                             try:
                                 place_order(symbol, qty, side)
-                                time.sleep(10)
-                                adjust_stop_loss(symbol, side, entry_price, atr, qty)
-                                time.sleep(10)
-                                place_trailing_stop(symbol, qty, side)
-                                time.sleep(10)
-                                place_take_profit_orders(symbol, qty, side, entry_price)
+                                placed_orders[symbol] = {
+                                    'time': datetime.now(),
+                                    'side': side,
+                                    'qty': qty,
+                                    'entry_price': entry_price
+                                }
+                                cryptocurrencies.remove(crypto_symbol)
+                                last_trade_dates[symbol] = datetime.now()
+
+                                # Start a new thread for managing the placed orders
+                                threading.Thread(target=manage_placed_orders, args=(symbol, side, entry_price, atr, qty)).start()
                             except Exception as e:
                                 logging.error(f"Error during trade execution for {crypto_symbol}: {e}")
                         else:
                             logging.error(f"Calculated qty is too low or invalid for {crypto_symbol}, order not placed.")
 
-                        last_trade_dates[symbol] = datetime.now()
-                    else:
-                        print(f"[{get_kuwait_time()}] No trade signal for {crypto_symbol}.")
-
-            # Sleep for a defined interval before repeating the loop
-            time.sleep(60)  # Adjust the sleep interval as needed
+            time.sleep(60)
 
         except Exception as e:
             logging.error(f"An error occurred: {e}")
             print(f"[{get_kuwait_time()}] Restarting the program in 30 seconds...")
             time.sleep(30)
             continue
+
+if __name__ == "__main__":
+    cryptocurrencies = [
+        "BTC", "ETH", "BNB", "ADA", "SOL", "XRP", "DOT", 
+        "DOGE", "AVAX", "SHIB", "MATIC", "LTC", "UNI", 
+        "BCH", "LINK", "USDC", "TON", "TRX", "LEO", "DAI", "NEAR"
+    ]
+
+    # Start a thread to handle the 5-day cooldown and automatic sell condition
+    threading.Thread(target=handle_cooldown_and_sell, args=(cryptocurrencies,)).start()
+
+    # Start the main trading loop
+    main_trading_loop(cryptocurrencies)
