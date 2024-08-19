@@ -371,9 +371,9 @@ def main_trading_loop(cryptocurrencies):
                         sentiment_score = (types_sentiment['reddit-post'] + types_sentiment['tweet']) / 2
                         print(f"[{get_kuwait_time()}] Crypto: {crypto_symbol}, Sentiment Score: {sentiment_score}")
 
-                        if sentiment_score >= 90:
+                        if sentiment_score >= 85:
                             buy_signals.append((crypto_symbol, sentiment_score))
-                        elif sentiment_score < 7:
+                        elif sentiment_score < 55:
                             sell_signals.append((crypto_symbol, sentiment_score))
 
             if not buy_signals and not sell_signals:
