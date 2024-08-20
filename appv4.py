@@ -261,7 +261,7 @@ def place_trailing_stop(symbol, qty, side):
 def place_take_profit_orders(symbol, qty, side, entry_price):
     try:
         # First take profit order at 4% gain
-        take_profit_1 = entry_price * 1.04 if side.lower() == "buy" else entry_price * 0.96
+        take_profit_1 = entry_price * 1.035 if side.lower() == "buy" else entry_price * 0.965
         alpaca.submit_order(
             symbol=symbol,
             qty=qty * 0.5,
@@ -272,41 +272,41 @@ def place_take_profit_orders(symbol, qty, side, entry_price):
         )
         logging.info(f"First take profit order placed at {take_profit_1}")
 
-        # Adjust stop loss to entry price after 4% gain
-        stop_loss_adjusted = entry_price
-        alpaca.submit_order(
-            symbol=symbol,
-            qty=qty * 0.5,
-            side='sell' if side.lower() == 'buy' else 'buy',
-            type='stop',
-            stop_price=stop_loss_adjusted,
-            time_in_force='gtc'
-        )
-        logging.info(f"Stop loss adjusted to entry price {entry_price}")
+        # # Adjust stop loss to entry price after 4% gain
+        # stop_loss_adjusted = entry_price
+        # alpaca.submit_order(
+        #     symbol=symbol,
+        #     qty=qty * 0.5,
+        #     side='sell' if side.lower() == 'buy' else 'buy',
+        #     type='stop',
+        #     stop_price=stop_loss_adjusted,
+        #     time_in_force='gtc'
+        # )
+        # logging.info(f"Stop loss adjusted to entry price {entry_price}")
 
-        # Second take profit order at 7% gain
-        take_profit_2 = entry_price * 1.07 if side.lower() == "buy" else entry_price * 0.93
-        alpaca.submit_order(
-            symbol=symbol,
-            qty=qty * 0.3,
-            side='sell' if side.lower() == 'buy' else 'buy',
-            type='limit',
-            limit_price=take_profit_2,
-            time_in_force='gtc'
-        )
-        logging.info(f"Second take profit order placed at {take_profit_2}")
+        # # Second take profit order at 7% gain
+        # take_profit_2 = entry_price * 1.07 if side.lower() == "buy" else entry_price * 0.93
+        # alpaca.submit_order(
+        #     symbol=symbol,
+        #     qty=qty * 0.3,
+        #     side='sell' if side.lower() == 'buy' else 'buy',
+        #     type='limit',
+        #     limit_price=take_profit_2,
+        #     time_in_force='gtc'
+        # )
+        # logging.info(f"Second take profit order placed at {take_profit_2}")
 
-        # Final take profit order at 10% gain
-        take_profit_3 = entry_price * 1.10 if side.lower() == "buy" else entry_price * 0.90
-        alpaca.submit_order(
-            symbol=symbol,
-            qty=qty * 0.2,
-            side='sell' if side.lower() == 'buy' else 'buy',
-            type='limit',
-            limit_price=take_profit_3,
-            time_in_force='gtc'
-        )
-        logging.info(f"Final take profit order placed at {take_profit_3}")
+        # # Final take profit order at 10% gain
+        # take_profit_3 = entry_price * 1.10 if side.lower() == "buy" else entry_price * 0.90
+        # alpaca.submit_order(
+        #     symbol=symbol,
+        #     qty=qty * 0.2,
+        #     side='sell' if side.lower() == 'buy' else 'buy',
+        #     type='limit',
+        #     limit_price=take_profit_3,
+        #     time_in_force='gtc'
+        # )
+        # logging.info(f"Final take profit order placed at {take_profit_3}")
 
     except Exception as e:
         logging.error(f"Error placing take profit orders: {e}")
@@ -316,9 +316,9 @@ def manage_placed_orders(symbol, side, entry_price, atr, qty):
     try:
         while symbol in placed_orders:
             adjust_stop_loss(symbol, side, entry_price, atr, qty)
-            time.sleep(10)
-            place_trailing_stop(symbol, qty, side)
-            time.sleep(10)
+            time.sleep(20)
+            # place_trailing_stop(symbol, qty, side)
+            # time.sleep(10)
             place_take_profit_orders(symbol, qty, side, entry_price)
             time.sleep(60)
 
