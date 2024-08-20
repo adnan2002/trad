@@ -315,21 +315,21 @@ def place_take_profit_orders(symbol, qty, side, entry_price):
 def manage_placed_orders(symbol, side, entry_price, atr, qty):
     try:
         while symbol in placed_orders:
-            adjust_stop_loss(symbol, side, entry_price, atr, qty)
-            time.sleep(20)
-            # place_trailing_stop(symbol, qty, side)
-            # time.sleep(10)
-            place_take_profit_orders(symbol, qty, side, entry_price)
-            time.sleep(60)
-
-            # Once a post-order function successfully executes, remove the symbol from placed orders
-            if symbol in placed_orders:
-                del placed_orders[symbol]
-                print(f"[{get_kuwait_time()}] {symbol} removed from placed orders after successful execution.")
-                break
+            try:
+                adjust_stop_loss(symbol, side, entry_price, atr, qty)
+                time.sleep(20)
+            except Exception as e:
+                logging.error(f"Error adjusting stop loss for {symbol}: {e}")
+                
+            try:
+                place_take_profit_orders(symbol, qty, side, entry_price)
+                time.sleep(60)
+            except Exception as e:
+                logging.error(f"Error placing take profit orders for {symbol}: {e}")
 
     except Exception as e:
-        logging.error(f"Error managing placed orders for {symbol}: {e}")
+        logging.error(f"Critical error managing placed orders for {symbol}: {e}")
+
 
 # Function to handle 5-day cooldown and automatic sell after 5 days
 def handle_cooldown_and_sell(cryptocurrencies):
