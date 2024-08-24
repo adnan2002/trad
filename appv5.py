@@ -47,7 +47,6 @@ def standardize_symbol(raw_symbol):
     "TON": ["TON", "TONUSDT", "Toncoin"],
     "TRX": ["TRX", "TRXUSDT", "TRON"],
     "LEO": ["LEO", "LEOUSDT", "UNUS SED LEO"],
-    "DAI": ["DAI", "DAIUSDT", "Dai"],
     "NEAR": ["NEAR", "NEARUSDT", "NEAR Protocol"],
 }
 
@@ -90,13 +89,13 @@ def fetch_lunarcrush_endpoint(endpoint, topic, retries=3, delay=5):
 # Fetch summary, posts, and time series data for a topic
 def fetch_lunarcrush_data(topic):
     summary_data = fetch_lunarcrush_endpoint('topic', topic)
-    posts_data = fetch_lunarcrush_endpoint('topic', f'{topic}/posts')
-    time_series_data = fetch_lunarcrush_endpoint('topic', f'{topic}/time-series')
-    if summary_data and posts_data and time_series_data:
+    # posts_data = fetch_lunarcrush_endpoint('topic', f'{topic}/posts')
+    # time_series_data = fetch_lunarcrush_endpoint('topic', f'{topic}/time-series')
+    if summary_data:
         return {
-            'summary': summary_data,
-            'posts': posts_data,
-            'time_series': time_series_data
+            'summary': summary_data
+            # 'posts': posts_data,
+            # 'time_series': time_series_data
         }
     else:
         return None
@@ -141,7 +140,7 @@ def get_current_price(symbol):
 def determine_trade_side(sentiment_score):
     side = None
 
-    if sentiment_score >= 86:
+    if sentiment_score >= 87:
         side = "BUY"
         print(f"[{get_kuwait_time()}] Trade side determined: buy (sentiment score >= 86)")
     elif sentiment_score < 55:
@@ -294,7 +293,7 @@ def main_trading_loop(cryptocurrencies):
                     data = lunarcrush_data['summary']['data']
                     types_sentiment = data.get('types_sentiment', {})
                     if types_sentiment:
-                        sentiment_score = (types_sentiment['reddit-post'] + types_sentiment['tweet']) / 2
+                        sentiment_score =  types_sentiment['tweet']
                         print(f"[{get_kuwait_time()}] Crypto: {crypto_symbol}, Sentiment Score: {sentiment_score}")
 
                         if sentiment_score >= 86:
@@ -374,7 +373,7 @@ if __name__ == "__main__":
     cryptocurrencies = [
          "BNB", "ADA", "SOL", "XRP", "DOT", 
         "DOGE", "AVAX", "SHIB", "MATIC", "LTC", "UNI", 
-        "BCH", "LINK",  "TON", "TRX", "LEO", "DAI", "NEAR"
+        "BCH", "LINK",  "TON", "TRX", "LEO", "NEAR"
     ]
 
     # Start a thread to handle the 5-day cooldown and automatic sell condition
