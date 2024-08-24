@@ -148,30 +148,6 @@ def get_current_price(symbol):
         logging.error(f"No quotes found for {symbol}")
         return None
     
-
-# # Determine trade side based on sentiment
-# def determine_trade_side(sentiment_score, topic):
-#     side = None
-#     sentiment_score_before = get_sentiment_change(topic)
-
-#     if sentiment_score_before is not None and abs(sentiment_score - sentiment_score_before) >= 10:
-#         if sentiment_score > sentiment_score_before:
-#             side = "buy"
-#             print(f"[{get_kuwait_time()}] Trade side determined: buy due to positive sentiment change")
-#         else:
-#             side = "sell"
-#             print(f"[{get_kuwait_time()}] Trade side determined: sell due to negative sentiment change")
-#     elif sentiment_score >= 90:
-#         side = "buy"
-#         print(f"[{get_kuwait_time()}] Trade side determined: buy")
-#     elif sentiment_score < 7:
-#         side = "sell"
-#         print(f"[{get_kuwait_time()}] Trade side determined: sell")
-
-#     if side is None:
-#         print(f"[{get_kuwait_time()}] No trade side determined")
-#     return side
-
 # Determine trade side based on sentiment
 def determine_trade_side(sentiment_score):
     side = None
@@ -241,21 +217,6 @@ def adjust_stop_loss(symbol, side, entry_price, atr, qty):
     except Exception as e:
         logging.error(f"Error setting stop loss: {e}")
 
-# Place trailing stop order
-def place_trailing_stop(symbol, qty, side):
-    trail_percent = 2.5
-    try:
-        alpaca.submit_order(
-            symbol=symbol,
-            qty=qty,
-            side='sell' if side.lower() == 'buy' else 'buy',
-            type='trailing_stop',
-            trail_percent=trail_percent,
-            time_in_force='gtc'
-        )
-        logging.info(f"Trailing stop set with trail percent {trail_percent}%")
-    except Exception as e:
-        logging.error(f"Error setting trailing stop: {e}")
 
 # Place take profit orders
 def place_take_profit_orders(symbol, qty, side, entry_price):
@@ -314,22 +275,10 @@ def place_take_profit_orders(symbol, qty, side, entry_price):
 # Function to manage placed orders and execute post-order functions
 def manage_placed_orders(symbol, side, entry_price, atr, qty):
     try:
-        while symbol in placed_orders:
-            try:
-                adjust_stop_loss(symbol, side, entry_price, atr, qty)
-                time.sleep(20)
-            except Exception as e:
-                logging.error(f"Error adjusting stop loss for {symbol}: {e}")
-                
-            try:
-                place_take_profit_orders(symbol, qty, side, entry_price)
-                time.sleep(60)
-            except Exception as e:
-                logging.error(f"Error placing take profit orders for {symbol}: {e}")
-
+        adjust_stop_loss(symbol, side, entry_price, atr, qty)
+        place_take_profit_orders(symbol, qty, side, entry_price)
     except Exception as e:
         logging.error(f"Critical error managing placed orders for {symbol}: {e}")
-
 
 # Function to handle 5-day cooldown and automatic sell after 5 days
 def handle_cooldown_and_sell(cryptocurrencies):
@@ -427,8 +376,8 @@ def main_trading_loop(cryptocurrencies):
                                 cryptocurrencies.remove(crypto_symbol)
                                 last_trade_dates[symbol] = datetime.now()
 
-                                # Start a new thread for managing the placed orders
-                                threading.Thread(target=manage_placed_orders, args=(symbol, side, entry_price, atr, qty)).start()
+                                # Manage placed orders directly in the main thread (no multithreading)
+                                manage_placed_orders(symbol, side, entry_price, atr, qty)
                                 break  # Exit the loop after placing an order successfully
                             except Exception as e:
                                 logging.error(f"Error during trade execution for {crypto_symbol}: {e}")
